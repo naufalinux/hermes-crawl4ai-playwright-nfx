@@ -33,7 +33,7 @@ unavailable. Install it from GitHub, pinned to an exact commit (use the commit y
 hermes plugins install naufalinux/hermes-crawl4ai-playwright-nfx --ref <40-character-commit-sha> --enable
 ```
 
-Hermes prints an "unreviewed source" warning for non-catalog plugins; read the code (about 150 lines) and the
+Hermes prints an "unreviewed source" warning for non-catalog plugins; read the code (about 170 lines) and the
 Disclosure section first. Then set `CRAWL4AI_URL` and `CRAWL4AI_API_TOKEN` in `~/.hermes/.env` and select the backend:
 
 ```bash
