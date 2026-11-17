@@ -57,6 +57,46 @@ clear 401 message). Also verified end-to-end: a live Hermes v0.23.1 `web_extract
 `react.dev/reference/react/useState` through this plugin and Crawl4AI (container log shows the matching `/md` request).
 The container needs ~10 s to stop (supervisord ignores SIGTERM until then); keep Quadlet's default stop timeout.
 
+## Disclosure
+
+What a user should know before installing (Hermes plugin catalog rule 13):
+
+**The plugin itself (`provider.py`, `__init__.py`, loaded by Hermes)**
+
+- **Network:** one outbound call per extracted URL, `POST {CRAWL4AI_URL}/md`, to the Crawl4AI server *you* configure.
+  It sends the target URL, the filter mode (`fit`/`raw`) and, if set, your bearer token. It contacts no other host
+  and has no default endpoint: with `CRAWL4AI_URL` unset it does nothing.
+- **Reads:** only `CRAWL4AI_URL`, `CRAWL4AI_API_TOKEN`, `CRAWL4AI_FILTER` and `CRAWL4AI_TIMEOUT`, through
+  `agent.secret_scope.get_secret_str`. It never reads `.env`, `auth.json`, other credential stores or any file.
+- **Writes / processes:** none. No files written, no shell commands, no subprocesses, no threads or background
+  processes, no self-update, no telemetry or usage reporting.
+- **Credentials:** the plugin stores nothing; Hermes holds the token in its own credential store.
+- **Untrusted content:** the markdown returned by Crawl4AI is passed to the agent unchanged. It comes from arbitrary
+  web pages, so treat it as data, not instructions (prompt injection).
+
+**The Crawl4AI server you point it at**
+
+- It fetches the target pages with a headless Chromium, so the URL (and your server's IP) reach the target site.
+  Hermes blocks private-network URLs before any backend runs, and Crawl4AI 0.9.x adds its own egress guard, but
+  how redirects from a public URL to an internal address are handled has not been tested here. Keep the server on a
+  network that cannot reach sensitive services.
+- The reference image (see below) runs Chromium with `--no-sandbox`: the upstream server config (`config.yml`)
+  sets it for non-root containers, which weakens browser isolation. Use it only for public web extraction.
+
+**Optional `deploy/` helpers (not loaded by Hermes, run by you)**
+
+- `deploy/build.sh` runs `podman build` and downloads the Crawl4AI source for tag `v0.9.5` from
+  `github.com/unclecode/crawl4ai` with `curl`. The `Dockerfile` installs packages from the Ubuntu apt repositories
+  and PyPI at build time (versions of Playwright and Crawl4AI pinned; transitive dependencies are not hash-pinned).
+  It never pulls the base image. Nothing here runs unless you invoke it.
+- `deploy/crawl4ai.container.example` is a loopback-only Quadlet unit you copy yourself.
+
+**Related Hermes behavior (not the plugin's)**
+
+- With Hermes' default `web.keyless_rescue: true`, a call that fails on *every* URL is retried once on a free
+  third-party service, which sends those URLs outside your machine and hides the failure from the agent. To keep
+  extraction strictly self-hosted, set `hermes config set web.keyless_rescue false`.
+
 ## License
 
 GPL-3.0-only. Copyright (C) 2026 Naufalinux. See `LICENSE`.
