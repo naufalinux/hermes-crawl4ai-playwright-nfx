@@ -53,7 +53,7 @@ def server():
 @pytest.fixture
 def env(monkeypatch):
     values = {}
-    monkeypatch.setattr(prov, "get_provider_env", lambda name: values.get(name, ""))
+    monkeypatch.setattr(prov, "get_secret_str", lambda name, default="": values.get(name, default))
     return values
 
 
@@ -153,3 +153,88 @@ def test_register_hooks_provider():
     ctx = Ctx()
     pkg.register(ctx)
     assert [p.name for p in ctx.registered] == ["crawl4ai"]
+
+
+# --- Credential route (catalog rule 11): real agent.secret_scope, no monkeypatching of the reader ---
+
+SETTING_NAMES = ("CRAWL4AI_URL", "CRAWL4AI_API_TOKEN", "CRAWL4AI_FILTER", "CRAWL4AI_TIMEOUT")
+
+
+@pytest.fixture
+def clean_env(monkeypatch):
+    for name in SETTING_NAMES:
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture
+def scope():
+    """Install a real profile secret scope; always reset it."""
+    from agent.secret_scope import reset_secret_scope, set_secret_scope
+    tokens = []
+
+    def bind(mapping):
+        tokens.append(set_secret_scope(mapping))
+
+    yield bind
+    for token in reversed(tokens):
+        reset_secret_scope(token)
+
+
+def test_settings_come_from_bound_secret_scope(clean_env, scope, server):
+    scope({"CRAWL4AI_URL": server.url, "CRAWL4AI_API_TOKEN": "scoped-token", "CRAWL4AI_FILTER": "raw"})
+    p = prov.Crawl4AIWebExtractProvider()
+    assert p.is_available()
+    out = p.extract(["https://e.com"])
+    assert "error" not in out[0]
+    assert server.requests[0]["auth"] == "Bearer scoped-token" and server.requests[0]["body"]["f"] == "raw"
+
+
+def test_single_profile_scope_miss_falls_back_to_process_env(clean_env, scope, server, monkeypatch):
+    # Single-profile semantics: the scope is an overlay, process env (systemd / op run) still works.
+    scope({})
+    monkeypatch.setenv("CRAWL4AI_URL", server.url)
+    assert prov.Crawl4AIWebExtractProvider().is_available()
+
+
+def test_multiplex_scope_miss_never_uses_another_profiles_env(clean_env, scope, server, monkeypatch):
+    import agent.secret_scope as ss
+    monkeypatch.setattr(ss, "_MULTIPLEX_ACTIVE", True)
+    monkeypatch.setenv("CRAWL4AI_URL", server.url)  # belongs to the process' profile, not the served one
+    scope({"CRAWL4AI_API_TOKEN": "profile-b"})
+    p = prov.Crawl4AIWebExtractProvider()
+    assert not p.is_available()
+    assert "CRAWL4AI_URL" in p.extract(["https://e.com"])[0]["error"]
+    assert server.requests == []
+
+
+def test_multiplex_without_scope_fails_closed(clean_env, server, monkeypatch):
+    import agent.secret_scope as ss
+    monkeypatch.setattr(ss, "_MULTIPLEX_ACTIVE", True)
+    monkeypatch.setenv("CRAWL4AI_URL", server.url)
+    p = prov.Crawl4AIWebExtractProvider()
+    with pytest.raises(ss.UnscopedSecretError):
+        p.is_available()
+    with pytest.raises(ss.UnscopedSecretError):
+        p.extract(["https://e.com"])
+    assert server.requests == []
+
+
+def test_provider_reads_credentials_only_through_secret_scope():
+    """Regression guard for rule 11: no env/dotenv/credential-file reads in the plugin source."""
+    import ast
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    for name in ("provider.py", "__init__.py"):
+        tree = ast.parse((root / name).read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                assert not {a.name.split(".")[0] for a in node.names} & {"os", "dotenv"}, name
+            if isinstance(node, ast.ImportFrom):
+                assert (node.module or "").split(".")[0] not in {"os", "dotenv"}, name
+                assert "get_provider_env" not in {a.name for a in node.names}, name
+            if isinstance(node, ast.Attribute):
+                assert node.attr not in {"environ", "getenv"}, name
+            if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "open":
+                raise AssertionError(f"{name}: open() call")
+    src = (root / "provider.py").read_text()
+    assert "get_secret_str" in src

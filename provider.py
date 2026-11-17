@@ -24,7 +24,8 @@ import re
 from typing import Any, Dict, List
 from urllib.parse import urlsplit
 
-from agent.web_search_provider import WebSearchProvider, get_provider_env
+from agent.secret_scope import get_secret_str
+from agent.web_search_provider import WebSearchProvider
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,19 @@ _FILTERS = {"fit", "raw"}
 _DEFAULT_TIMEOUT = 60.0
 
 
+def _env(name: str) -> str:
+    """Read a setting through Hermes' profile-scoped credential route (catalog rule 11).
+
+    Never reads ``.env``/``os.environ`` directly. On a multiplexed gateway with no profile
+    scope bound, ``get_secret_str`` raises ``UnscopedSecretError`` and we let it propagate
+    rather than guess another profile's value.
+    """
+    return get_secret_str(name).strip()
+
+
 def _base_url() -> str:
     """Return the validated base URL, or ``""`` when unset/invalid."""
-    value = get_provider_env("CRAWL4AI_URL").rstrip("/")
+    value = _env("CRAWL4AI_URL").rstrip("/")
     try:
         parts = urlsplit(value)
         valid = (
@@ -50,7 +61,7 @@ def _base_url() -> str:
 
 def _timeout() -> float:
     try:
-        return min(max(float(get_provider_env("CRAWL4AI_TIMEOUT") or _DEFAULT_TIMEOUT), 5.0), 300.0)
+        return min(max(float(_env("CRAWL4AI_TIMEOUT") or _DEFAULT_TIMEOUT), 5.0), 300.0)
     except ValueError:
         return _DEFAULT_TIMEOUT
 
@@ -96,11 +107,11 @@ class Crawl4AIWebExtractProvider(WebSearchProvider):
         base = _base_url()
         if not base:
             return [_entry(u, error="CRAWL4AI_URL is not set or is not a valid http(s) URL") for u in urls]
-        token = get_provider_env("CRAWL4AI_API_TOKEN")
+        token = _env("CRAWL4AI_API_TOKEN")
         headers = {"Content-Type": "application/json"}
         if token:
             headers["Authorization"] = f"Bearer {token}"
-        mode = (get_provider_env("CRAWL4AI_FILTER") or "fit").lower()
+        mode = (_env("CRAWL4AI_FILTER") or "fit").lower()
         mode = mode if mode in _FILTERS else "fit"
 
         results: List[Dict[str, Any]] = []
