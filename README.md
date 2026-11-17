@@ -26,8 +26,25 @@ hermes config set web.extract_backend crawl4ai
 
 ## Install
 
-Place (or symlink) this directory at `~/.hermes/plugins/hermes-crawl4ai-playwright-nfx` and enable it
-through Hermes' plugin commands (`hermes plugins --help`). Restart running Hermes sessions afterwards.
+This plugin is **not in the Hermes plugin catalog**, so a bare-name install (`hermes plugins install <name>`) is
+unavailable. Install it from GitHub, pinned to an exact commit (use the commit you have reviewed):
+
+```bash
+hermes plugins install naufalinux/hermes-crawl4ai-playwright-nfx --ref <40-character-commit-sha> --enable
+```
+
+Hermes prints an "unreviewed source" warning for non-catalog plugins; read the code (about 150 lines) and the
+Disclosure section first. Then set `CRAWL4AI_URL` and `CRAWL4AI_API_TOKEN` in `~/.hermes/.env` and select the backend:
+
+```bash
+hermes config set web.extract_backend crawl4ai
+```
+
+Restart running Hermes sessions afterwards. For development, symlink this directory to
+`~/.hermes/plugins/hermes-crawl4ai-playwright-nfx` and run `hermes plugins enable hermes-crawl4ai-playwright-nfx`.
+
+An existing catalog plugin, [`hermes-web-crawl4ai`](https://github.com/axAilotl/hermes-web-crawl4ai), covers Crawl4AI
+extraction plus bounded crawling; consider it if you need more than extraction.
 
 ## Server image (optional, `deploy/`)
 
