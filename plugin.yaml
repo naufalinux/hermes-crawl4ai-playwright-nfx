@@ -1,0 +1,20 @@
+name: hermes-crawl4ai-playwright-nfx
+version: 0.1.0
+requires_hermes: ">=0.23.1"
+homepage: https://github.com/naufalinux/hermes-crawl4ai-playwright-nfx
+description: "Crawl4AI web-extract backend for Hermes (extract only). Pair with SearXNG for search. Requires CRAWL4AI_URL and CRAWL4AI_API_TOKEN."
+author: Naufalinux
+license: GPL-3.0-only
+kind: backend
+provides_web_providers:
+  - crawl4ai
+optional_env:
+  - name: CRAWL4AI_URL
+    description: "Base URL of your Crawl4AI server (http/https, no credentials)"
+  - name: CRAWL4AI_API_TOKEN
+    description: "Bearer token your Crawl4AI server requires"
+    secret: true
+  - name: CRAWL4AI_FILTER
+    description: "Markdown filter: fit (default) or raw"
+  - name: CRAWL4AI_TIMEOUT
+    description: "Seconds per URL, 5-300 (default 60)"

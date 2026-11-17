@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Naufalinux
+# Copy to ~/.config/containers/systemd/crawl4ai.container, create the env file, then:
+#   systemctl --user daemon-reload && systemctl --user start crawl4ai
+# Env file (mode 600) must contain one line:  CRAWL4AI_API_TOKEN=<openssl rand -hex 32>
+[Unit]
+Description=Crawl4AI server (loopback only, for Hermes web_extract)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+ContainerName=crawl4ai
+Image=localhost/crawl4ai-pw:0.9.5-pw1.64.1
+Pull=never
+DropCapability=ALL
+NoNewPrivileges=true
+PublishPort=127.0.0.1:11235:11235
+EnvironmentFile=%h/work/crawl4ai/config/crawl4ai.env
+PodmanArgs=--memory=2g --shm-size=1g
+
+[Service]
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target
