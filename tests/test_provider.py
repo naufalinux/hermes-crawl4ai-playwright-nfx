@@ -82,7 +82,7 @@ def test_success_sends_f_and_bearer(env, server):
 
 
 def test_filter_raw_and_invalid_fallback(env, server):
-    env.update(CRAWL4AI_URL=server.url, CRAWL4AI_FILTER="raw")
+    env.update(CRAWL4AI_URL=server.url, CRAWL4AI_FILTER="raw", CRAWL4AI_VERIFY_STATUS="off")
     prov.Crawl4AIWebExtractProvider().extract(["https://e.com"])
     env["CRAWL4AI_FILTER"] = "bogus"
     prov.Crawl4AIWebExtractProvider().extract(["https://e.com"])
@@ -124,6 +124,7 @@ def test_unreachable_and_unset(env):
 
 def test_non_http_url_skipped_and_order_kept(env, server):
     env["CRAWL4AI_URL"] = server.url
+    env["CRAWL4AI_VERIFY_STATUS"] = "off"
     out = prov.Crawl4AIWebExtractProvider().extract(["file:///etc/passwd", "https://e.com"])
     assert "Only http(s)" in out[0]["error"] and out[1]["url"] == "https://e.com"
     assert len(server.requests) == 1

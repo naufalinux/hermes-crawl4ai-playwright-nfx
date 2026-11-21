@@ -250,3 +250,80 @@ def test_key_never_logged(env, fake, caplog):
         run(["https://a.example/x"])
     assert "fc-secret" not in caplog.text and "c4-secret" not in caplog.text
     assert "a.example" in caplog.text and "/x" not in caplog.text    # host only, not the full URL
+
+
+# ---- HTTP status verification for short pages (404 reported as success by /md) -----------------
+
+class StatusServer:
+    """/md always succeeds; /crawl reports a status code per path."""
+
+    def __init__(self):
+        self.calls = []
+        self.status = {"/missing": 404, "/gone": 410, "/boom": 500}
+        self.crawl_fails = False
+        self.md_text = "# Not Found\n\nThis page doesn't exist."
+        outer = self
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                outer.calls.append((self.path, body))
+                if self.path == "/md":
+                    raw = json.dumps({"success": True, "markdown": outer.md_text}).encode()
+                    self.send_response(200)
+                elif outer.crawl_fails:
+                    raw = b"{}"; self.send_response(500)
+                else:
+                    path = "/" + body["urls"][0].split("/", 3)[3]
+                    raw = json.dumps({"success": True, "results": [{"status_code": outer.status.get(path, 200)}]}).encode()
+                    self.send_response(200)
+                self.send_header("Content-Type", "application/json"); self.end_headers(); self.wfile.write(raw)
+
+        self.httpd = HTTPServer(("127.0.0.1", 0), H)
+        self.url = f"http://127.0.0.1:{self.httpd.server_port}"
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+
+@pytest.fixture
+def st(monkeypatch):
+    s = StatusServer()
+    values = {"CRAWL4AI_URL": s.url}
+    monkeypatch.setattr(prov, "get_secret_str", lambda name, default="": values.get(name, default))
+    s.env = values
+    yield s
+    s.httpd.shutdown()
+
+
+@pytest.mark.parametrize("path,code", [("/missing", 404), ("/gone", 410), ("/boom", 500)])
+def test_short_page_with_error_status_is_error(st, path, code):
+    r = run([f"https://a.example{path}"])[0]
+    assert f"HTTP {code}" in r["error"] and r["content"] == ""
+
+
+def test_short_page_with_200_stays_success(st):
+    r = run(["https://a.example/ok"])[0]
+    assert "error" not in r and "Not Found" in r["content"]
+
+
+def test_status_check_failure_keeps_result(st):
+    st.crawl_fails = True
+    assert "error" not in run(["https://a.example/missing"])[0]
+
+
+def test_long_page_skips_status_check(st):
+    st.md_text = "# Real\n\n" + "word " * 600
+    r = run(["https://a.example/missing"])[0]
+    assert "error" not in r and [p for p, _ in st.calls] == ["/md"]
+
+
+def test_verify_can_be_disabled(st):
+    st.env["CRAWL4AI_VERIFY_STATUS"] = "off"
+    assert "error" not in run(["https://a.example/missing"])[0] and [p for p, _ in st.calls] == ["/md"]
+
+
+def test_error_status_never_triggers_fallback(st):
+    st.env.update(CRAWL4AI_FALLBACK="firecrawl", FIRECRAWL_API_KEY="fc-secret")
+    assert "HTTP 404" in run(["https://a.example/missing"])[0]["error"]

@@ -35,3 +35,5 @@ optional_env:
     description: "Max fallback fetches per process per day (default 20; resets on restart)"
   - name: CRAWL4AI_FALLBACK_DENY_DOMAINS
     description: "Comma-separated domains that are never sent to the fallback"
+  - name: CRAWL4AI_VERIFY_STATUS
+    description: "Check the HTTP status of short pages via /crawl so 404/410/5xx pages are errors, not content (default on; 'off' disables)"

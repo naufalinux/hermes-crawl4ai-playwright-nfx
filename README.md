@@ -20,6 +20,7 @@ reports as blocked by anti-bot protection. Search is not included; pair it with 
 | `CRAWL4AI_API_TOKEN` | yes for Crawl4AI ≥ 0.9 | Put it in `~/.hermes/.env` (secret) |
 | `CRAWL4AI_FILTER` | no | `fit` (default) or `raw` |
 | `CRAWL4AI_TIMEOUT` | no | seconds per URL, 5-300, default 60 |
+| `CRAWL4AI_VERIFY_STATUS` | no | default on; `off` disables the HTTP-status check of short pages (see "Known limits") |
 | `CRAWL4AI_MAX_CHARS` | no | truncate each page to N chars (2000-200000); unset or 0 = no truncation |
 | `CRAWL4AI_CRAWL_TIMEOUT` | no | deadline for one `crawl4ai_crawl` call, 30-300 s, default 180 |
 | `CRAWL4AI_FALLBACK` | no | `firecrawl` enables the fallback below; **off by default** |
@@ -32,6 +33,13 @@ reports as blocked by anti-bot protection. Search is not included; pair it with 
 hermes config set web.search_backend searxng
 hermes config set web.extract_backend crawl4ai
 ```
+
+## Known limits
+
+- Crawl4AI `/md` reports success and no HTTP status even for a 404. For markdown shorter than 1,500 characters the
+  plugin asks `/crawl` for the real status (one extra request, best effort) and returns an error for 4xx/5xx.
+  A **long** error page (for example GitHub's 404, which is several KB of boilerplate) is still returned as content,
+  and if the status check itself fails the result is kept. Page-level soft 404s that return HTTP 200 are not detected.
 
 ## Firecrawl fallback (opt-in)
 
@@ -108,7 +116,7 @@ The tests use a stdlib fake Crawl4AI server; no network is needed.
 
 ## Status
 
-Verified (0.2.0): 61 unit tests (24 original, 27 for typed errors / fallback / budgets / limits, 10 for the crawl tool); five deliberate mutations (query-string guard removed, per-call cap ignored, fallback on any error, same-site check removed, API key echoed in an error) each made tests fail. `hermes plugins validate` passes with one warning: the plugin imports Hermes-internal helpers (`tools.url_safety`, `tools.website_policy`), which can break on a Hermes release (catalog rule 9). Live checks against Crawl4AI 0.9.5, Firecrawl Cloud and Hermes v0.23.1: two anti-bot-blocked pages (a Wiley article and an NIA article) were served by the fallback, a PMC page stayed local, a URL with a query string was not sent out, `crawl4ai_crawl` returned 4 same-site pages, and a `hermes chat` `web_extract` call returned the Wiley article with the provenance line. Earlier (0.1.0): 24 unit tests (fake Crawl4AI server plus the real `agent.secret_scope` for the credential route, including multiplex fail-closed and profile-isolation cases; a mutation check confirmed they fail if settings are read from `os.environ`); the provider class run directly against a live Crawl4AI
+Verified (0.2.0): 69 unit tests (24 original, 35 for typed errors / fallback / budgets / limits / status check, 10 for the crawl tool); five deliberate mutations (query-string guard removed, per-call cap ignored, fallback on any error, same-site check removed, API key echoed in an error) each made tests fail. `hermes plugins validate` passes with one warning: the plugin imports Hermes-internal helpers (`tools.url_safety`, `tools.website_policy`), which can break on a Hermes release (catalog rule 9). Live checks against Crawl4AI 0.9.5, Firecrawl Cloud and Hermes v0.23.1: two anti-bot-blocked pages (a Wiley article and an NIA article) were served by the fallback, a PMC page stayed local, a URL with a query string was not sent out, `crawl4ai_crawl` returned 4 same-site pages, and a `hermes chat` `web_extract` call returned the Wiley article with the provenance line. Earlier (0.1.0): 24 unit tests (fake Crawl4AI server plus the real `agent.secret_scope` for the credential route, including multiplex fail-closed and profile-isolation cases; a mutation check confirmed they fail if settings are read from `os.environ`); the provider class run directly against a live Crawl4AI
 v0.9.5 container built from `deploy/` (markdown + title returned, non-http URL refused, wrong token gives a
 clear 401 message). Also verified end-to-end: a live Hermes v0.23.1 `web_extract` call (`hermes chat -q`) fetched
 `react.dev/reference/react/useState` through this plugin and Crawl4AI (container log shows the matching `/md` request).

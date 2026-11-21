@@ -15,6 +15,7 @@ Environment (read through Hermes' config-aware lookup, never logged)::
     CRAWL4AI_API_TOKEN=<bearer token>       # required by Crawl4AI >= 0.9 unless loopback-only
     CRAWL4AI_FILTER=fit                     # optional: fit (default) | raw
     CRAWL4AI_TIMEOUT=60                     # optional: seconds per URL (5-300)
+    CRAWL4AI_VERIFY_STATUS=on               # optional: off disables the HTTP-status check of short pages
     CRAWL4AI_MAX_CHARS=0                    # optional: truncate each page (2000-200000; 0 = off)
 
 Opt-in fallback for pages Crawl4AI reports as blocked by anti-bot protection (public URLs only)::
@@ -47,6 +48,7 @@ _DEFAULT_TIMEOUT = 60.0
 _FIRECRAWL_URL = "https://api.firecrawl.dev/v2/scrape"  # fixed: the API key is never sent elsewhere
 _FIRECRAWL_TIMEOUT = 60.0
 _THIN_CHARS = 1500
+_VERIFY_BELOW = 1500  # markdown shorter than this is checked for an HTTP error status
 _MAX_DETAIL = 200
 _CHALLENGE_RE = re.compile(r"just a moment|verify you are human|enable javascript and cookies|attention required", re.I)
 _BLOCKED_RE = re.compile(r"anti-?bot", re.I)
@@ -139,6 +141,25 @@ def _detail(response: Any) -> str:
     if isinstance(value, list):
         value = "; ".join(str(v) for v in value)
     return " ".join(str(value).split())[:_MAX_DETAIL] if value else ""
+
+
+def _verify_enabled() -> bool:
+    return _env("CRAWL4AI_VERIFY_STATUS").lower() not in ("off", "0", "false", "no")
+
+
+def _page_status(client: Any, base: str, headers: Dict[str, str], url: str) -> Optional[int]:
+    """HTTP status of the page via /crawl (/md reports none). None when it cannot be determined."""
+    payload = {"urls": [url], "browser_config": {"type": "BrowserConfig", "params": {"headless": True}},
+               "crawler_config": {"type": "CrawlerRunConfig", "params": {"cache_mode": "bypass"}}}
+    try:
+        resp = client.post(f"{base}/crawl", json=payload, headers=headers)
+        if resp.status_code >= 400:
+            return None
+        items = resp.json().get("results")
+        code = items[0].get("status_code") if isinstance(items, list) and items else None
+        return code if isinstance(code, int) else None
+    except Exception:  # noqa: BLE001 - verification is best effort and must never fail the extract
+        return None
 
 
 def _is_blocked(detail: str) -> bool:
@@ -305,6 +326,10 @@ class Crawl4AIWebExtractProvider(WebSearchProvider):
         markdown = data.get("markdown") if isinstance(data, dict) else None
         if not isinstance(markdown, str) or not data.get("success"):
             return _entry(url, error="Crawl4AI reported failure or an invalid response"), False
+        if len(markdown) < _VERIFY_BELOW and _verify_enabled():
+            code = _page_status(client, base, headers, url)
+            if code is not None and code >= 400:
+                return _entry(url, error=f"Page returned HTTP {code} (Crawl4AI /md reported success)"), False
         return _entry(url, _title(markdown, url), markdown), False
 
     def get_setup_schema(self) -> Dict[str, Any]:
