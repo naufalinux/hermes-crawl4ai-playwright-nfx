@@ -150,6 +150,9 @@ def test_register_hooks_provider():
         def register_web_search_provider(self, p):
             self.registered.append(p)
 
+        def register_tool(self, **kw):
+            pass
+
     ctx = Ctx()
     pkg.register(ctx)
     assert [p.name for p in ctx.registered] == ["crawl4ai"]
@@ -224,7 +227,7 @@ def test_provider_reads_credentials_only_through_secret_scope():
     import ast
     import pathlib
     root = pathlib.Path(__file__).resolve().parent.parent
-    for name in ("provider.py", "__init__.py"):
+    for name in ("provider.py", "crawl.py", "__init__.py"):
         tree = ast.parse((root / name).read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
