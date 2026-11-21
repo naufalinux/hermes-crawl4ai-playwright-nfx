@@ -90,10 +90,10 @@ This plugin is **not in the Hermes plugin catalog**, so a bare-name install (`he
 unavailable. Install it from GitHub, pinned to an exact commit (use the commit you have reviewed):
 
 ```bash
-hermes plugins install naufalinux/hermes-crawl4ai-playwright-nfx --ref f29ee385a564bfce39792aaf11f6d31637e3e9b7 --enable
+hermes plugins install naufalinux/hermes-crawl4ai-playwright-nfx --ref 7ae6a3bddfa82212864e2141daf1f6bfa763969c --enable
 ```
 
-`f29ee385…` is the merge commit of release **0.2.0** (PR #1) and contains all the code described here. Later commits
+`7ae6a3bd…` is the merge commit of release **0.3.0** (PR #3) and contains all the code described here. Release 0.2.0 is `f29ee385…`; it still uses the old names `crawl4ai` / `crawl4ai_crawl`. Later commits
 may only change documentation; each new release gets a new pinned SHA (see Roadmap). If you pin a different commit,
 read its diff first.
 
