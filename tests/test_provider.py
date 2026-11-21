@@ -82,7 +82,7 @@ def test_success_sends_f_and_bearer(env, server):
 
 
 def test_filter_raw_and_invalid_fallback(env, server):
-    env.update(CRAWL4AI_URL=server.url, CRAWL4AI_FILTER="raw")
+    env.update(CRAWL4AI_URL=server.url, CRAWL4AI_FILTER="raw", CRAWL4AI_VERIFY_STATUS="off")
     prov.Crawl4AIWebExtractProvider().extract(["https://e.com"])
     env["CRAWL4AI_FILTER"] = "bogus"
     prov.Crawl4AIWebExtractProvider().extract(["https://e.com"])
@@ -124,6 +124,7 @@ def test_unreachable_and_unset(env):
 
 def test_non_http_url_skipped_and_order_kept(env, server):
     env["CRAWL4AI_URL"] = server.url
+    env["CRAWL4AI_VERIFY_STATUS"] = "off"
     out = prov.Crawl4AIWebExtractProvider().extract(["file:///etc/passwd", "https://e.com"])
     assert "Only http(s)" in out[0]["error"] and out[1]["url"] == "https://e.com"
     assert len(server.requests) == 1
@@ -149,6 +150,9 @@ def test_register_hooks_provider():
 
         def register_web_search_provider(self, p):
             self.registered.append(p)
+
+        def register_tool(self, **kw):
+            pass
 
     ctx = Ctx()
     pkg.register(ctx)
@@ -224,7 +228,7 @@ def test_provider_reads_credentials_only_through_secret_scope():
     import ast
     import pathlib
     root = pathlib.Path(__file__).resolve().parent.parent
-    for name in ("provider.py", "__init__.py"):
+    for name in ("provider.py", "crawl.py", "__init__.py"):
         tree = ast.parse((root / name).read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
