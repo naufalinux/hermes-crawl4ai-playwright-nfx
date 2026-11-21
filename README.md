@@ -22,7 +22,7 @@ reports as blocked by anti-bot protection. Search is not included; pair it with 
 | `CRAWL4AI_TIMEOUT` | no | seconds per URL, 5-300, default 60 |
 | `CRAWL4AI_VERIFY_STATUS` | no | default on; `off` disables the HTTP-status check of short pages (see "Known limits") |
 | `CRAWL4AI_MAX_CHARS` | no | truncate each page to N chars (2000-200000); unset or 0 = no truncation |
-| `CRAWL4AI_CRAWL_TIMEOUT` | no | deadline for one `crawl4ai_crawl` call, 30-300 s, default 180 |
+| `CRAWL4AI_CRAWL_TIMEOUT` | no | deadline for one `crawl4ai_nfx_crawl` call, 30-300 s, default 180 |
 | `CRAWL4AI_FALLBACK` | no | `firecrawl` enables the fallback below; **off by default** |
 | `FIRECRAWL_API_KEY` | only for the fallback | secret; the key alone does not enable anything |
 | `CRAWL4AI_FALLBACK_MAX_PER_CALL` | no | fallback fetches per extract call, default 3 |
@@ -31,8 +31,24 @@ reports as blocked by anti-bot protection. Search is not included; pair it with 
 
 ```bash
 hermes config set web.search_backend searxng
-hermes config set web.extract_backend crawl4ai
+hermes config set web.extract_backend crawl4ai-nfx
 ```
+
+## Names (0.3.0 breaking change)
+
+Every identifier that could collide with another community Crawl4AI plugin carries the `-nfx` suffix:
+
+| | before 0.3.0 | now |
+|---|---|---|
+| web extract backend (`web.extract_backend`) | `crawl4ai` | `crawl4ai-nfx` |
+| crawl tool | `crawl4ai_crawl` | `crawl4ai_nfx_crawl` |
+| toolset | `crawl4ai` | `crawl4ai-nfx` |
+
+`CRAWL4AI_URL`, `CRAWL4AI_API_TOKEN` and the other `CRAWL4AI_*` settings keep their names on purpose: they describe the
+server and its credential, so one `.env` works with any Crawl4AI plugin. The old `crawl4ai` id is **not** registered as
+an alias, because it would collide with the other plugins again. **Upgrading:** set `web.backend` and
+`web.extract_backend` to `crawl4ai-nfx`, and rename `crawl4ai` to `crawl4ai-nfx` in any `platform_toolsets` list; a
+profile still pointing at `crawl4ai` has no extract backend until you do.
 
 ## Known limits
 
@@ -62,7 +78,7 @@ When `CRAWL4AI_FALLBACK=firecrawl` and `FIRECRAWL_API_KEY` are both set, a URL w
 
 ## Crawl tool
 
-`crawl4ai_crawl` (toolset `crawl4ai`, enable it when needed) follows links breadth-first under the seed host and its
+`crawl4ai_nfx_crawl` (toolset `crawl4ai-nfx`, enable it when needed) follows links breadth-first under the seed host and its
 subdomains: `basic` = one link level, `advanced` = two, `max_pages` 1-20. Links are followed in the plugin with
 single-page `/crawl` calls, so every URL is checked against Hermes' URL-safety and website policy before it is sent
 to Crawl4AI, and the final URL of each result is checked again. A blocked page becomes a per-page error. The crawl
@@ -85,7 +101,7 @@ Hermes prints an "unreviewed source" warning for non-catalog plugins; read the c
 Disclosure section first. Then set `CRAWL4AI_URL` and `CRAWL4AI_API_TOKEN` in `~/.hermes/.env` and select the backend:
 
 ```bash
-hermes config set web.extract_backend crawl4ai
+hermes config set web.extract_backend crawl4ai-nfx
 ```
 
 Restart running Hermes sessions afterwards. For development, symlink this directory to
@@ -120,7 +136,7 @@ The tests use a stdlib fake Crawl4AI server; no network is needed.
 
 ## Status
 
-Verified (0.2.0): 69 unit tests (24 original, 35 for typed errors / fallback / budgets / limits / status check, 10 for the crawl tool); five deliberate mutations (query-string guard removed, per-call cap ignored, fallback on any error, same-site check removed, API key echoed in an error) each made tests fail. `hermes plugins validate` passes with one warning: the plugin imports Hermes-internal helpers (`tools.url_safety`, `tools.website_policy`), which can break on a Hermes release (catalog rule 9). Live checks against Crawl4AI 0.9.5, Firecrawl Cloud and Hermes v0.23.1: two anti-bot-blocked pages (a Wiley article and an NIA article) were served by the fallback, a PMC page stayed local, a URL with a query string was not sent out, `crawl4ai_crawl` returned 4 same-site pages, and a `hermes chat` `web_extract` call returned the Wiley article with the provenance line. Earlier (0.1.0): 24 unit tests (fake Crawl4AI server plus the real `agent.secret_scope` for the credential route, including multiplex fail-closed and profile-isolation cases; a mutation check confirmed they fail if settings are read from `os.environ`); the provider class run directly against a live Crawl4AI
+Verified (0.2.0, names changed in 0.3.0): 69 unit tests (24 original, 35 for typed errors / fallback / budgets / limits / status check, 10 for the crawl tool); five deliberate mutations (query-string guard removed, per-call cap ignored, fallback on any error, same-site check removed, API key echoed in an error) each made tests fail. `hermes plugins validate` passes with one warning: the plugin imports Hermes-internal helpers (`tools.url_safety`, `tools.website_policy`), which can break on a Hermes release (catalog rule 9). Live checks against Crawl4AI 0.9.5, Firecrawl Cloud and Hermes v0.23.1: two anti-bot-blocked pages (a Wiley article and an NIA article) were served by the fallback, a PMC page stayed local, a URL with a query string was not sent out, `crawl4ai_nfx_crawl` returned 4 same-site pages, and a `hermes chat` `web_extract` call returned the Wiley article with the provenance line. Earlier (0.1.0): 24 unit tests (fake Crawl4AI server plus the real `agent.secret_scope` for the credential route, including multiplex fail-closed and profile-isolation cases; a mutation check confirmed they fail if settings are read from `os.environ`); the provider class run directly against a live Crawl4AI
 v0.9.5 container built from `deploy/` (markdown + title returned, non-http URL refused, wrong token gives a
 clear 401 message). Also verified end-to-end: a live Hermes v0.23.1 `web_extract` call (`hermes chat -q`) fetched
 `react.dev/reference/react/useState` through this plugin and Crawl4AI (container log shows the matching `/md` request).

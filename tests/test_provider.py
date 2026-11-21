@@ -59,7 +59,7 @@ def env(monkeypatch):
 
 def test_flags_and_availability(env):
     p = prov.Crawl4AIWebExtractProvider()
-    assert (p.name, p.supports_search(), p.supports_extract()) == ("crawl4ai", False, True)
+    assert (p.name, p.supports_search(), p.supports_extract()) == ("crawl4ai-nfx", False, True)
     assert not p.is_available()
     env["CRAWL4AI_URL"] = "http://127.0.0.1:11235/"
     assert p.is_available()
@@ -156,7 +156,7 @@ def test_register_hooks_provider():
 
     ctx = Ctx()
     pkg.register(ctx)
-    assert [p.name for p in ctx.registered] == ["crawl4ai"]
+    assert [p.name for p in ctx.registered] == ["crawl4ai-nfx"]
 
 
 # --- Credential route (catalog rule 11): real agent.secret_scope, no monkeypatching of the reader ---
