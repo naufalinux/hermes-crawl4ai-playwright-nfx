@@ -79,7 +79,7 @@ def env(monkeypatch, srv):
 
 
 def call(url, **args):
-    return json.loads(asyncio.run(crawl.crawl4ai_crawl_tool({"url": url, **args})))
+    return json.loads(asyncio.run(crawl.crawl4ai_nfx_crawl_tool({"url": url, **args})))
 
 
 def site(srv, path=""):
@@ -176,7 +176,7 @@ def test_schema_and_registration():
 
     ctx = Ctx()
     pkg.register(ctx)
-    assert [p.name for p in ctx.providers] == ["crawl4ai"]
+    assert [p.name for p in ctx.providers] == ["crawl4ai-nfx"]
     t = ctx.tools[0]
-    assert t["name"] == "crawl4ai_crawl" and t["toolset"] == "crawl4ai" and t["is_async"] is True
+    assert t["name"] == "crawl4ai_nfx_crawl" and t["toolset"] == "crawl4ai-nfx" and t["is_async"] is True
     assert t["schema"]["parameters"]["required"] == ["url"] and callable(t["handler"]) and callable(t["check_fn"])

@@ -5,7 +5,7 @@
 # (https://github.com/axAilotl/hermes-web-crawl4ai). See THIRD_PARTY_NOTICES.md.
 # Changes: settings come from the profile-scoped credential route (no config.yaml block), a single
 # flat /crawl call per page, errors are typed with the server's anti-bot detail, no Firecrawl fallback.
-"""Bounded same-site crawl tool (``crawl4ai_crawl``) backed by the same Crawl4AI server.
+"""Bounded same-site crawl tool (``crawl4ai_nfx_crawl``) backed by the same Crawl4AI server.
 
 Links are followed here, one single-page ``/crawl`` call at a time, so every URL is checked against
 Hermes' URL-safety and website policy BEFORE it reaches the service (Crawl4AI >= 0.9 rejects a
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 MAX_CRAWL_PAGES = 20
 
 CRAWL4AI_CRAWL_SCHEMA = {
-    "name": "crawl4ai_crawl",
+    "name": "crawl4ai_nfx_crawl",
     "description": (
         "Crawl a bounded set of pages under one public website using the user's self-hosted Crawl4AI "
         "service. Use this only when several linked pages are needed; for one known page, use "
@@ -112,7 +112,7 @@ def _document(raw: Dict[str, Any], fallback_url: str) -> Dict[str, Any]:
     return _entry(url, _title(content, url), content)
 
 
-async def crawl4ai_crawl_tool(args: Dict[str, Any], **_: Any) -> str:
+async def crawl4ai_nfx_crawl_tool(args: Dict[str, Any], **_: Any) -> str:
     """Run a bounded same-site crawl; never raises, returns a JSON string."""
     seed = str((args or {}).get("url") or "").strip()
     try:

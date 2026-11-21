@@ -7,7 +7,7 @@ Extract-only: Crawl4AI renders pages in a browser and returns markdown from its
 
     web:
       search_backend: searxng
-      extract_backend: crawl4ai
+      extract_backend: crawl4ai-nfx
 
 Environment (read through Hermes' config-aware lookup, never logged)::
 
@@ -251,7 +251,7 @@ class Crawl4AIWebExtractProvider(WebSearchProvider):
 
     @property
     def name(self) -> str:
-        return "crawl4ai"
+        return "crawl4ai-nfx"
 
     @property
     def display_name(self) -> str:
