@@ -74,8 +74,12 @@ This plugin is **not in the Hermes plugin catalog**, so a bare-name install (`he
 unavailable. Install it from GitHub, pinned to an exact commit (use the commit you have reviewed):
 
 ```bash
-hermes plugins install naufalinux/hermes-crawl4ai-playwright-nfx --ref <40-character-commit-sha> --enable
+hermes plugins install naufalinux/hermes-crawl4ai-playwright-nfx --ref f29ee385a564bfce39792aaf11f6d31637e3e9b7 --enable
 ```
+
+`f29ee385…` is the merge commit of release **0.2.0** (PR #1) and contains all the code described here. Later commits
+may only change documentation; each new release gets a new pinned SHA (see Roadmap). If you pin a different commit,
+read its diff first.
 
 Hermes prints an "unreviewed source" warning for non-catalog plugins; read the code (about 520 lines) and the
 Disclosure section first. Then set `CRAWL4AI_URL` and `CRAWL4AI_API_TOKEN` in `~/.hermes/.env` and select the backend:
@@ -134,6 +138,10 @@ each release is a new pinned commit (catalog entries pin an exact SHA, so every 
   (`blocked`, `timeout`, `auth`, `upstream`) instead of message text.
 - [ ] **Transient failures.** Bounded retry (at most 2, exponential backoff with jitter, honoring `Retry-After`) for
   502/503/timeouts only; never retry 4xx. GitHub returned an intermittent 503 during testing.
+- [x] **Status of short pages.** Done in 0.2.0: `/md` reports success for a 404, so markdown under 1,500 characters
+  is checked through `/crawl` and 4xx/5xx becomes an error (see "Known limits"; long error pages and soft 404s are
+  still not detected).
+- [x] **Opt-in fallback for anti-bot blocks** (Firecrawl Cloud) and **bounded crawl tool**, both done in 0.2.0.
 - [ ] **Titles.** `/md` returns no title; when the markdown has no `# ` heading the title falls back to the URL.
   Use the `/crawl` metadata (see 0.3) or the first heading of any level.
 - [ ] **Redirects and SSRF.** Test how a redirect from a public URL to a private address is handled by Hermes and by
@@ -147,7 +155,8 @@ each release is a new pinned commit (catalog entries pin an exact SHA, so every 
 
 ### 0.3: improvements
 
-- [ ] Optional `/crawl` backend: returns `metadata.title`, final URL after redirects and status code.
+- [ ] Optional `/crawl` backend (0.2.0 already uses `/crawl` for the crawl tool and the status check, but not for
+  `web_extract`): returns `metadata.title`, final URL after redirects and status code.
 - [ ] `config_schema` for the non-secret URL (token stays a secret) and `requires_env` for install-time prompts.
 - [ ] `hermes crawl4ai doctor` (CLI via `register_cli_command`): checks URL, token, `/health`, version and the
   Playwright pin. Diagnostics only, no deployment wizard.
@@ -173,7 +182,8 @@ Plan, in order; each phase ships only if it improves a **measured** result:
 
 1. **Measure (no evasion).** Fixed list of ≥30 public pages, spaced requests, recording status and block reason.
    Establishes the baseline blocked rate. Without it, "stealth works" is a guess.
-2. **Detect and report.** Classify blocks (HTTP 403/429/503, Cloudflare-style challenges, "minimal text" shells) into
+2. **Detect and report.** *(Partly done in 0.2.0: blocks are reported with the server's reason; the classification
+   into 403/429/503 and the rate limiting below are not.)* Classify blocks (HTTP 403/429/503, Cloudflare-style challenges, "minimal text" shells) into
    a distinct `blocked` error with a hint to try an official source. Add per-host rate limiting with jitter and a
    short cooldown after a block (rapid repeats are what triggered Hacker News), plus a small result cache.
 3. **Honor the rules.** `check_robots_txt` as a setting; refuse hosts the user lists in `CRAWL4AI_DENY_HOSTS`.
